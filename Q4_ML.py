@@ -1,4 +1,4 @@
-# Error in dataSet no error but not proper
+# Error in dataSet, no error but not proper data
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 
