@@ -1,7 +1,7 @@
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 iris=load_iris()
 x=iris.data
@@ -17,3 +17,7 @@ y_pred=KNN.predict(x_test)
 
 acc=accuracy_score(y_test,y_pred)
 print(acc)
+
+conf_matrix = confusion_matrix(y_test, y_pred)
+print("Confusion Matrix:")
+print(conf_matrix)
