@@ -90,3 +90,36 @@ def test_compare_linear_vs_polynomial_uses_identical_test_set():
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+def test_byteflow_plugin_car_price_predictions_tool():
+    import sys, os
+    datalab_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, datalab_root)
+
+    # ByteFlow is a sibling project, not a pip-installed dependency of
+    # DataLab - add it to sys.path the same way extension_loader.py does
+    # at runtime, since byteflow_plugin.py imports `from byteflow...`.
+    # Try a couple of plausible locations rather than assuming one exact
+    # layout, since "sibling of DataLab" can mean different things
+    # depending on how the two repos were checked out.
+    parent_dir = os.path.dirname(datalab_root)
+    candidates = [
+        os.path.join(parent_dir, "ByteFlow"),
+        os.path.join(parent_dir, "ByteFlow_flat", "ByteFlow"),
+    ]
+    byteflow_root = next((c for c in candidates if os.path.isdir(os.path.join(c, "byteflow"))), None)
+
+    if byteflow_root is None:
+        import pytest
+        pytest.skip(f"ByteFlow not found in any of {candidates} - skipping plugin integration test")
+
+    sys.path.insert(0, byteflow_root)
+
+    from byteflow_plugin import _car_price_predictions
+
+    output = _car_price_predictions(top_n=3)
+    assert "R²=" in output or "R\u00b2=" in output
+    assert "actual" in output and "predicted" in output
+    # exactly 3 prediction lines requested
+    assert output.count("actual") == 3

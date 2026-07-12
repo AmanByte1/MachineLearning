@@ -69,6 +69,38 @@ def _car_data_outliers(column="selling_price"):
     return "\n".join(lines)
 
 
+def _car_price_predictions(top_n=10):
+    """
+    Trains a real regression model (DataLab's Unit 4 multiple linear
+    regression, via unit3_ml_intro's preprocessing pipeline) on
+    car_data.csv, and reports actual vs predicted selling price for a
+    sample of cars from the held-out test set - a real prediction, not
+    a canned/fake answer, using the model's genuine test-set accuracy
+    (see the metrics line) so the person can judge how much to trust it.
+    """
+    from datalab import unit3_ml_intro as ml_intro
+    from datalab import unit4_regression as reg
+
+    data = ml_intro.prepare_car_data_for_modeling()
+    model = reg.train_multiple_linear_regression(data["X_train"], data["y_train"])
+    predictions = model.predict(data["X_test"])
+    metrics = reg.evaluate_regression(data["y_test"], predictions)
+
+    lines = [
+        f"Multiple linear regression trained on car_data.csv "
+        f"(R\u00b2={metrics['r2']:.2f}, avg error \u2248 \u20b9{metrics['mae']:,.0f} - "
+        f"treat predictions with that margin of error in mind):",
+        "",
+    ]
+    n = min(top_n, len(data["X_test"]))
+    for i in range(n):
+        actual = data["y_test"].iloc[i]
+        predicted = predictions[i]
+        lines.append(f"  actual \u20b9{actual:,.0f}  ->  predicted \u20b9{predicted:,.0f}")
+
+    return "\n".join(lines)
+
+
 class DataLabPlugin(Plugin):
     def setup(self, agent):
         agent.register_tool(Tool(
@@ -85,6 +117,13 @@ class DataLabPlugin(Plugin):
             "car_data_outliers",
             _car_data_outliers,
             "detects statistical outliers in a numeric column of car_data.csv (default: selling_price)",
+        ))
+        agent.register_tool(Tool(
+            "car_price_predictions",
+            _car_price_predictions,
+            "trains a real regression model on car_data.csv and shows actual vs predicted "
+            "selling price for a sample of cars, with the model's real accuracy (R2, MAE); "
+            "takes one optional argument, how many cars to show (default 10)",
         ))
 
 
