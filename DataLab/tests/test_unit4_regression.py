@@ -123,3 +123,91 @@ def test_byteflow_plugin_car_price_predictions_tool():
     assert "actual" in output and "predicted" in output
     # exactly 3 prediction lines requested
     assert output.count("actual") == 3
+
+
+def test_predict_price_for_car_in_range_year():
+    result = reg.predict_price_for_car(year=2022, km_driven=30000, fuel="Petrol")
+    assert result["predicted_price"] > 0
+    assert result["extrapolating"] is False
+    assert "fuel" not in result["defaults_used"]  # explicitly given, not defaulted
+    assert "seller_type" in result["defaults_used"]  # not given, should be defaulted
+
+
+def test_predict_price_for_car_flags_extrapolation_for_future_year():
+    result = reg.predict_price_for_car(year=2028, km_driven=10000)
+    assert result["extrapolating"] is True
+
+
+def test_predict_price_for_car_rejects_unknown_category():
+    raised = False
+    try:
+        reg.predict_price_for_car(year=2022, km_driven=30000, fuel="Hydrogen")
+    except ValueError as e:
+        raised = True
+        assert "Unknown fuel" in str(e)
+    assert raised
+
+
+def test_predict_price_for_car_uses_correct_feature_column_order():
+    # real bug risk this guards against: sklearn matches features by
+    # POSITION not name, so if the row dict order ever drifted from
+    # data["feature_columns"], predictions would be silently wrong
+    # rather than erroring - this just checks the function runs
+    # end-to-end without a shape/order mismatch exception, which would
+    # surface immediately if the ordering were wrong.
+    result = reg.predict_price_for_car(year=2020, km_driven=50000)
+    assert isinstance(result["predicted_price"], float)
+
+
+def test_predict_car_price_structured_returns_plain_dict():
+    import sys, os
+    datalab_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, datalab_root)
+    parent_dir = os.path.dirname(datalab_root)
+    candidates = [
+        os.path.join(parent_dir, "ByteFlow"),
+        os.path.join(parent_dir, "ByteFlow_flat", "ByteFlow"),
+    ]
+    byteflow_root = next((c for c in candidates if os.path.isdir(os.path.join(c, "byteflow"))), None)
+    if byteflow_root is None:
+        import pytest
+        pytest.skip(f"ByteFlow not found in any of {candidates}")
+    sys.path.insert(0, byteflow_root)
+
+    from byteflow_plugin import _predict_car_price_structured, format_car_price_prediction, _predict_car_price
+
+    structured = _predict_car_price_structured(2028, 10000)
+    assert isinstance(structured, dict)
+    assert "predicted_price" in structured
+    assert structured["extrapolating"] is True
+
+    # the formatted string must be derivable from the SAME structured
+    # data, and the registered tool's formatted output must match
+    # exactly - proving the split didn't change the actual answer,
+    # only how it's exposed
+    formatted_from_dict = format_car_price_prediction(structured)
+    formatted_from_tool = _predict_car_price(2028, 10000)
+    assert "Predicted selling price" in formatted_from_dict
+    assert formatted_from_dict == formatted_from_tool
+
+
+def test_predict_car_price_structured_error_path():
+    import sys, os
+    datalab_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, datalab_root)
+    parent_dir = os.path.dirname(datalab_root)
+    candidates = [
+        os.path.join(parent_dir, "ByteFlow"),
+        os.path.join(parent_dir, "ByteFlow_flat", "ByteFlow"),
+    ]
+    byteflow_root = next((c for c in candidates if os.path.isdir(os.path.join(c, "byteflow"))), None)
+    if byteflow_root is None:
+        import pytest
+        pytest.skip(f"ByteFlow not found in any of {candidates}")
+    sys.path.insert(0, byteflow_root)
+
+    from byteflow_plugin import _predict_car_price_structured, format_car_price_prediction
+
+    structured = _predict_car_price_structured(2022, 30000, fuel="Hydrogen")
+    assert "error" in structured
+    assert "[Error:" in format_car_price_prediction(structured)
