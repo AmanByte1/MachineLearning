@@ -19,3 +19,4 @@ mp["apple"] = 10
 
 if "apple" in mp:
     print("Found")
+    print(mp)
